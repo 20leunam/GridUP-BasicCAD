@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GridUP BasicCAD</title>
+<link rel="stylesheet" href="css/estilos.css?v=21">
+</head>
+<body>
+
+<!-- ===================== SPRITE DE ICONOS ===================== -->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-reja" viewBox="0 0 24 24">
+    <rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/>
+    <path d="M9 3.5v17M15 3.5v17M3.5 9h17M3.5 15h17"/>
+  </symbol>
+  <symbol id="i-rev" viewBox="0 0 24 24">
+    <ellipse cx="12" cy="5.5" rx="6.5" ry="2.8"/>
+    <path d="M5.5 5.5v13c0 1.5 2.9 2.8 6.5 2.8s6.5-1.3 6.5-2.8v-13"/>
+    <ellipse cx="12" cy="18.5" rx="6.5" ry="2.8"/>
+  </symbol>
+  <symbol id="i-dim" viewBox="0 0 24 24">
+    <path d="M4 8v8M20 8v8M7 12h10M4 8l3-3M4 8l3 3M20 8l-3-3M20 8l-3 3"/>
+  </symbol>
+  <symbol id="i-marco" viewBox="0 0 24 24">
+    <rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/>
+    <rect x="7" y="7" width="10" height="10" rx="1"/>
+  </symbol>
+  <symbol id="i-barras" viewBox="0 0 24 24">
+    <path d="M7 3v18M12 3v18M17 3v18M3 7h18M3 12h18M3 17h18"/>
+  </symbol>
+  <symbol id="i-deco" viewBox="0 0 24 24">
+    <path d="M12 3l2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z"/>
+  </symbol>
+  <symbol id="i-boceto" viewBox="0 0 24 24">
+    <path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10z"/>
+    <path d="M14.5 5.5l4 4"/>
+  </symbol>
+  <symbol id="i-descargar" viewBox="0 0 24 24">
+    <path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>
+  </symbol>
+  <symbol id="i-cubo" viewBox="0 0 24 24">
+    <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/>
+    <path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>
+  </symbol>
+  <symbol id="i-front" viewBox="0 0 24 24">
+    <rect x="4" y="4" width="16" height="16" rx="1.5"/>
+    <path d="M4 12h16"/>
+  </symbol>
+  <symbol id="i-sup" viewBox="0 0 24 24">
+    <path d="M12 3l8 4.5-8 4.5-8-4.5z"/>
+    <path d="M4 12l8 4.5 8-4.5M4 16.5l8 4.5 8-4.5"/>
+  </symbol>
+  <symbol id="i-encuadrar" viewBox="0 0 24 24">
+    <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+  </symbol>
+  <symbol id="i-linea" viewBox="0 0 24 24">
+    <path d="M5 19L19 5"/>
+    <circle cx="5" cy="19" r="1.6"/>
+    <circle cx="19" cy="5" r="1.6"/>
+  </symbol>
+  <symbol id="i-arco" viewBox="0 0 24 24">
+    <path d="M4 18a12 12 0 0 1 14-14"/>
+    <circle cx="4" cy="18" r="1.5"/>
+    <circle cx="18" cy="4" r="1.5"/>
+  </symbol>
+  <symbol id="i-sel" viewBox="0 0 24 24">
+    <path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/>
+    <path d="M9 9h6v6H9z"/>
+  </symbol>
+  <symbol id="i-borrar" viewBox="0 0 24 24">
+    <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>
+  </symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24">
+    <path d="M9 7H5v-4M5 7a8 8 0 1 1-1 8"/>
+  </symbol>
+  <symbol id="i-torno" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="7"/>
+    <path d="M12 2v20" stroke-dasharray="2.5 2.5"/>
+  </symbol>
+  <symbol id="i-cuadrado" viewBox="0 0 24 24">
+    <rect x="4.5" y="4.5" width="15" height="15" rx="1"/>
+  </symbol>
+  <symbol id="i-hexagono" viewBox="0 0 24 24">
+    <path d="M12 3l7 4.1v9.8L12 21l-7-4.1V7.1z"/>
+  </symbol>
+  <symbol id="i-octogono" viewBox="0 0 24 24">
+    <path d="M8.2 3.5h7.6l4.7 4.7v7.6l-4.7 4.7H8.2l-4.7-4.7V8.2z"/>
+  </symbol>
+  <symbol id="i-ejemplo" viewBox="0 0 24 24">
+    <path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7z"/>
+    <path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>
+  </symbol>
+  <symbol id="i-extru" viewBox="0 0 24 24">
+    <path d="M4 14l8 4 8-4M4 14l8-4 8 4-8 4z"/>
+    <path d="M4 14V9l8-4 8 4v5M12 5v5"/>
+  </symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24">
+    <path d="M6 9l6 6 6-6"/>
+  </symbol>
+  <symbol id="i-local" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8"/>
+    <path d="M8.5 12.2l2.3 2.3 4.7-5"/>
+  </symbol>
+</svg>
+
+<!-- ===================== CABECERA ===================== -->
+<header class="cabecera">
+  <div class="marca">
+    <div class="logo"><svg class="ico"><use href="#i-reja"/></svg></div>
+    <div>
+      <h1>GridUP BasicCAD</h1>
+      <p>CAD paramétrico básico · STEP / STL</p>
+    </div>
+  </div>
+
+  <nav class="pestanas" id="pestanas" aria-label="Secciones">
+    <button class="pestana activa" data-tab="rejas">
+      <svg class="ico"><use href="#i-reja"/></svg>
+      Rejas
+    </button>
+    <button class="pestana" data-tab="revolucion">
+      <svg class="ico"><use href="#i-rev"/></svg>
+      Piezas de revolución
+    </button>
+    <button class="pestana" data-tab="extrusion">
+      <svg class="ico"><use href="#i-extru"/></svg>
+      Extrusión
+    </button>
+  </nav>
+
+  <div class="estado-app">
+    <svg class="ico"><use href="#i-local"/></svg>
+    <span>100% local</span>
+  </div>
+</header>
+
+<main class="contenido">
+
+  <!-- ===================== REJAS ===================== -->
+  <section id="tab-rejas" class="tab activa">
+    <aside class="columna-izq">
+
+      <details class="seccion" open>
+        <summary>
+          <span class="seccion-icono"><svg class="ico"><use href="#i-dim"/></svg></span>
+          <span class="seccion-titulo">Dimensiones</span>
+          <svg class="ico seccion-chevron"><use href="#i-chevron"/></svg>
+        </summary>
+        <div class="seccion-cuerpo">
+          <div class="campos">
+            <label>
+              <span class="etq">Ancho <em>mm</em></span>
+              <input id="r-ancho" type="number" value="80" min="2" step="1" data-slider data-min="10" data-max="300">
+            </label>
+            <label>
+              <span class="etq">Alto <em>mm</em></span>
+              <input id="r-alto" type="number" value="100" min="2" step="1" data-slider data-min="10" data-max="300">
+            </label>
+            <label>
+              <span class="etq">Fondo / profundidad <em>mm</em></span>
+              <input id="r-fondo" type="number" value="3" min="0.5" step="0.5" data-slider data-min="0.5" data-max="20">
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <details class="seccion" open>
+        <summary>
+          <span class="seccion-icono"><svg class="ico"><use href="#i-marco"/></svg></span>
+          <span class="seccion-titulo">Marco</span>
+          <svg class="ico seccion-chevron"><use href="#i-chevron"/></svg>
+        </summary>
+        <div class="seccion-cuerpo">
+          <label class="interruptor">
+            <span>Incluir marco perimetral</span>
+            <input id="r-marco" type="checkbox" checked>
+            <span class="pista"></span>
+          </label>
+          <div class="campos">
+            <label>
+              <span class="etq">Grosor del marco <em>mm</em></span>
+              <input id="r-marco-grosor" type="number" value="5" min="0.5" step="0.5" data-slider data-min="0.5" data-max="20">
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <details class="seccion" open>
+        <summary>
+          <span class="seccion-icono"><svg class="ico"><use href="#i-barras"/></svg></span>
+          <span class="seccion-titulo">Barras</span>
+          <svg class="ico seccion-chevron"><use href="#i-chevron"/></svg>
+        </summary>
+        <div class="seccion-cuerpo">
+          <div class="campos dos">
+            <label>
+              <span class="etq">Verticales</span>
+              <input id="r-nv" type="number" value="4" min="0" step="1" data-slider data-min="0" data-max="30">
+            </label>
+            <label>
+              <span class="etq">Grosor V <em>mm</em></span>
+              <input id="r-gv" type="number" value="2.4" min="0.4" step="0.2" data-slider data-min="0.4" data-max="12">
+            </label>
+            <label>
+              <span class="etq">Horizontales</span>
+              <input id="r-nh" type="number" value="3" min="0" step="1" data-slider data-min="0" data-max="30">
+            </label>
+            <label>
+              <span class="etq">Grosor H <em>mm</em></span>
+              <input id="r-gh" type="number" value="2.4" min="0.4" step="0.2" data-slider data-min="0.4" data-max="12">
+            </label>
+            <label>
+              <span class="etq">Desfase V <em>mm</em></span>
+              <input id="r-off-v" type="number" value="0" step="0.5" data-slider data-min="-100" data-max="100">
+            </label>
+            <label>
+              <span class="etq">Desfase H <em>mm</em></span>
+              <input id="r-off-h" type="number" value="0" step="0.5" data-slider data-min="-100" data-max="100">
+            </label>
+          </div>
+          <p class="nota">El desfase desplaza el conjunto de barras en horizontal (V) o vertical (H).</p>
+        </div>
+      </details>
+
+      <details class="seccion" open>
+        <summary>
+          <span class="seccion-icono"><svg class="ico"><use href="#i-deco"/></svg></span>
+          <span class="seccion-titulo">Elementos decorativos</span>
+          <svg class="ico seccion-chevron"><use href="#i-chevron"/></svg>
+        </summary>
+        <div class="seccion-cuerpo">
+          <div class="fila-add">
+            <select id="r-deco-tipo">
+              <option value="esfera">Esfera</option>
+              <option value="cubo">Cubo</option>
+              <option value="rombo">Rombo</option>
+              <option value="cono">Cono</option>
+              <option value="cilindro">Cilindro</option>
+              <option value="toro">Anillo</option>
+            </select>
+            <button id="r-deco-add" class="btn sec">+ Añadir</button>
+          </div>
+          <div id="r-deco-lista" class="lista-deco"></div>
+          <p class="nota">Posición en mm: X horizontal, Y profundidad, Z altura.</p>
+        </div>
+      </details>
+
+      <details class="seccion" open>
+        <summary>
+          <span class="seccion-icono"><svg class="ico"><use href="#i-cubo"/></svg></span>
+          <span class="seccion-titulo">Acabado</span>
+          <svg class="ico seccion-chevron"><use href="#i-chevron"/></svg>
+        </summary>
+        <div class="seccion-cuerpo">
+          <div class="paleta" data-paleta="rejas">
+            <button class="muestra activa" data-color="2f80ed" style="--c:#2f80ed" title="Azul"></button>
+            <button class="muestra" data-color="9aa6b2" style="--c:#9aa6b2" title="Acero"></button>
+            <button class="muestra" data-color="c97a5a" style="--c:#c97a5a" title="Terracota"></button>
+            <button class="muestra" data-color="3d4248" style="--c:#3d4248" title="Grafito"></button>
+            <button class="muestra" data-color="4fbf9f" style="--c:#4fbf9f" title="Menta"></button>
+          </div>
+          <p class="nota">Color solo de previsualización. No afecta al STEP ni al STL.</p>
+        </div>
+      </details>
+
+    </aside>
+
+    <div class="columna-der">
+      <div class="visor" id="visor-rejas"></div>
+
+      <div class="barra-visor arriba-izq">
+        <button id="r-btn-iso" class="btn chip" title="Vista isométrica">
+          <svg class="ico"><use href="#i-cubo"/></svg> Iso
+        </button>
+        <button id="r-btn-frontal" class="btn chip" title="Vista frontal">
+          <svg class="ico"><use href="#i-front"/></svg> Frontal
+        </button>
+        <button id="r-btn-superior" class="btn chip" title="Vista superior">
+          <svg class="ico"><use href="#i-sup"/></svg> Superior
+        </button>
+        <button id="r-btn-encuadrar" class="btn chip" title="Encuadrar">
+          <svg class="ico"><use href="#i-encuadrar"/></svg> Encuadrar
+        </button>
+      </div>
+
+      <div class="barra-visor arriba-der">
+        <button id="r-btn-stl" class="btn chip">STL</button>
+        <button id="r-btn-step" class="btn primario">
+          <svg class="ico"><use href="#i-descargar"/></svg> <span class="lbl-largo">Descargar </span>STEP
+        </button>
+      </div>
+
+      <div class="pie" id="r-info"></div>
+    </div>
+  </section>
+
+  <!-- ================== REVOLUCIÓN ================== -->
+  <section id="tab-revolucion" class="tab">
+    <aside class="columna-izq boceto-col">
+      <div class="panel-boceto">
+
+        <div class="cab-boceto">
+          <div class="titulo-boceto">
+            <span class="seccion-icono"><svg class="ico"><use href="#i-boceto"/></svg></span>
+            <div>
+              <h2>Silueta</h2>
+              <p>Dibuja el perfil · pulsa punto a punto</p>
+            </div>
+          </div>
+          <div class="herramientas">
+            <button class="herr activa" data-herr="linea" title="Línea">
+              <svg class="ico"><use href="#i-linea"/></svg> Línea
+            </button>
+            <button class="herr" data-herr="arco" title="Arco por 3 puntos">
+              <svg class="ico"><use href="#i-arco"/></svg> Arco
+            </button>
+            <button class="herr" data-herr="sel" title="Seleccionar">
+              <svg class="ico"><use href="#i-sel"/></svg> Selecc.
+            </button>
+            <button class="herr" data-herr="borrar" title="Borrar">
+              <svg class="ico"><use href="#i-borrar"/></svg> Borrar
+            </button>
+          </div>
+        </div>
+
+        <div class="lienzo-wrap">
+          <canvas id="lienzo" class="lienzo"></canvas>
+        </div>
+
+        <div class="pie-boceto">
+          <div id="rev-estado" class="estado-boceto"></div>
+          <div class="mini-acciones">
+            <label class="inline">Rejilla
+              <select id="rev-paso">
+                <option value="0.5" selected>0,5 mm</option>
+                <option value="0.1">0,1 mm</option>
+                <option value="1">1 mm</option>
+                <option value="5">5 mm</option>
+              </select>
+            </label>
+            <button id="rev-btn-deshacer" class="btn chip" title="Deshacer (Ctrl+Z)">
+              <svg class="ico"><use href="#i-undo"/></svg>
+            </button>
+            <button id="rev-btn-limpiar" class="btn chip">Limpiar</button>
+            <button id="rev-btn-ejemplo" class="btn chip">
+              <svg class="ico"><use href="#i-ejemplo"/></svg> Ejemplo
+            </button>
+            <button id="rev-btn-cubo" class="btn chip" title="Perfil rectangular de 10 × 20 mm">
+              <svg class="ico"><use href="#i-cubo"/></svg> Cubo
+            </button>
+            <button id="rev-btn-encuadrar-boceto" class="btn chip">
+              <svg class="ico"><use href="#i-encuadrar"/></svg> Centrar
+            </button>
+          </div>
+        </div>
+
+        <div class="params-rev">
+          <div class="params-cab">
+            <span class="etq-seccion">Revolución</span>
+            <span class="sub">sección transversal</span>
+          </div>
+
+          <div class="modos" id="rev-modos">
+            <label>
+              <input type="radio" name="rev-modo" value="torno" checked>
+              <span><svg class="ico"><use href="#i-torno"/></svg>Torno<small>circular</small></span>
+            </label>
+            <label>
+              <input type="radio" name="rev-modo" value="cuadrado">
+              <span><svg class="ico"><use href="#i-cuadrado"/></svg>Cuadrado</span>
+            </label>
+            <label>
+              <input type="radio" name="rev-modo" value="hexagono">
+              <span><svg class="ico"><use href="#i-hexagono"/></svg>Hexágono</span>
+            </label>
+            <label>
+              <input type="radio" name="rev-modo" value="octogono">
+              <span><svg class="ico"><use href="#i-octogono"/></svg>Octógono</span>
+            </label>
+          </div>
+
+          <div class="campos dos">
+            <label>
+              <span class="etq">Desplaz. radial <em>mm</em></span>
+              <input id="rev-desplaz" type="number" value="0" step="0.5" data-slider data-min="-50" data-max="50">
+            </label>
+            <label id="fila-calidad">
+              <span class="etq">Calidad</span>
+              <select id="rev-resolucion">
+                <option value="baja">Baja</option>
+                <option value="media" selected>Media</option>
+                <option value="alta">Alta</option>
+              </select>
+            </label>
+          </div>
+
+
+          <div class="paleta" data-paleta="revolucion">
+            <button class="muestra activa" data-color="2f80ed" style="--c:#2f80ed" title="Azul"></button>
+            <button class="muestra" data-color="9aa6b2" style="--c:#9aa6b2" title="Acero"></button>
+            <button class="muestra" data-color="c97a5a" style="--c:#c97a5a" title="Terracota"></button>
+            <button class="muestra" data-color="3d4248" style="--c:#3d4248" title="Grafito"></button>
+            <button class="muestra" data-color="4fbf9f" style="--c:#4fbf9f" title="Menta"></button>
+          </div>
+          <p class="nota" id="rev-nota">Torno: el perfil gira alrededor del eje vertical. Cada línea empieza donde acabó la anterior; Esc o doble clic termina el trazo.</p>
+        </div>
+
+      </div>
+    </aside>
+
+    <div class="columna-der">
+      <div class="visor visor-rev" id="visor-rev"></div>
+
+      <div class="barra-visor arriba-izq">
+        <button id="rev-btn-iso" class="btn chip" title="Vista isométrica">
+          <svg class="ico"><use href="#i-cubo"/></svg> Iso
+        </button>
+        <button id="rev-btn-front" class="btn chip" title="Vista frontal">
+          <svg class="ico"><use href="#i-front"/></svg> Frontal
+        </button>
+        <button id="rev-btn-sup" class="btn chip" title="Vista superior">
+          <svg class="ico"><use href="#i-sup"/></svg> Superior
+        </button>
+        <button id="rev-btn-encuadrar" class="btn chip" title="Encuadrar">
+          <svg class="ico"><use href="#i-encuadrar"/></svg> Encuadrar
+        </button>
+      </div>
+
+      <div class="barra-visor arriba-der">
+        <button id="rev-btn-stl" class="btn chip">STL</button>
+        <button id="rev-btn-step" class="btn primario">
+          <svg class="ico"><use href="#i-descargar"/></svg> <span class="lbl-largo">Descargar </span>STEP
+        </button>
+      </div>
+
+      <div class="pie" id="rev-info"></div>
+    </div>
+  </section>
+
+  <!-- ================== EXTRUSIÓN ================== -->
+  <section id="tab-extrusion" class="tab">
+    <aside class="columna-izq boceto-col">
+      <div class="panel-boceto">
+
+        <div class="cab-boceto">
+          <div class="titulo-boceto">
+            <span class="seccion-icono"><svg class="ico"><use href="#i-boceto"/></svg></span>
+            <div>
+              <h2>Contorno</h2>
+              <p>Dibuja el plano · pulsa punto a punto</p>
+            </div>
+          </div>
+          <div class="herramientas">
+            <button class="herr activa" data-herr="linea" title="Línea">
+              <svg class="ico"><use href="#i-linea"/></svg> Línea
+            </button>
+            <button class="herr" data-herr="arco" title="Arco por 3 puntos">
+              <svg class="ico"><use href="#i-arco"/></svg> Arco
+            </button>
+            <button class="herr" data-herr="sel" title="Seleccionar">
+              <svg class="ico"><use href="#i-sel"/></svg> Selecc.
+            </button>
+            <button class="herr" data-herr="borrar" title="Borrar">
+              <svg class="ico"><use href="#i-borrar"/></svg> Borrar
+            </button>
+          </div>
+        </div>
+
+        <div class="lienzo-wrap">
+          <canvas id="lienzo-ext" class="lienzo"></canvas>
+        </div>
+
+        <div class="pie-boceto">
+          <div id="ext-estado" class="estado-boceto"></div>
+          <div class="mini-acciones">
+            <label class="inline">Rejilla
+              <select id="ext-paso">
+                <option value="0.5" selected>0,5 mm</option>
+                <option value="0.1">0,1 mm</option>
+                <option value="1">1 mm</option>
+                <option value="5">5 mm</option>
+              </select>
+            </label>
+            <button id="ext-btn-deshacer" class="btn chip" title="Deshacer (Ctrl+Z)">
+              <svg class="ico"><use href="#i-undo"/></svg>
+            </button>
+            <button id="ext-btn-limpiar" class="btn chip">Limpiar</button>
+            <button id="ext-btn-ejemplo" class="btn chip">
+              <svg class="ico"><use href="#i-ejemplo"/></svg> Ejemplo
+            </button>
+            <button id="ext-btn-rect" class="btn chip" title="Rectángulo de 40 × 20 mm">
+              <svg class="ico"><use href="#i-cuadrado"/></svg> Rectángulo
+            </button>
+            <button id="ext-btn-placa" class="btn chip" title="Placa con un extremo curvo">
+              <svg class="ico"><use href="#i-arco"/></svg> Placa
+            </button>
+            <button id="ext-btn-encuadrar-boceto" class="btn chip">
+              <svg class="ico"><use href="#i-encuadrar"/></svg> Centrar
+            </button>
+          </div>
+        </div>
+
+        <div class="params-rev">
+          <div class="params-cab">
+            <span class="etq-seccion">Extrusión</span>
+            <span class="sub">el plano se extruye en altura</span>
+          </div>
+
+          <div class="campos dos">
+            <label>
+              <span class="etq">Grosor de extrusión <em>mm</em></span>
+              <input id="ext-grosor" type="number" value="10" min="0.1" step="0.5" data-slider data-min="0.5" data-max="100">
+            </label>
+          </div>
+
+          <div class="paleta" data-paleta="extrusion">
+            <button class="muestra activa" data-color="2f80ed" style="--c:#2f80ed" title="Azul"></button>
+            <button class="muestra" data-color="9aa6b2" style="--c:#9aa6b2" title="Acero"></button>
+            <button class="muestra" data-color="c97a5a" style="--c:#c97a5a" title="Terracota"></button>
+            <button class="muestra" data-color="3d4248" style="--c:#3d4248" title="Grafito"></button>
+            <button class="muestra" data-color="4fbf9f" style="--c:#4fbf9f" title="Menta"></button>
+          </div>
+          <p class="nota">Dibuja un contorno cerrado: cada línea empieza donde acabó la anterior. Para cerrarlo, pulsa sobre el primer punto. Esc o doble clic termina el trazo.</p>
+        </div>
+
+      </div>
+    </aside>
+
+    <div class="columna-der">
+      <div class="visor visor-rev" id="visor-ext"></div>
+
+      <div class="barra-visor arriba-izq">
+        <button id="ext-btn-iso" class="btn chip" title="Vista isométrica">
+          <svg class="ico"><use href="#i-cubo"/></svg> Iso
+        </button>
+        <button id="ext-btn-front" class="btn chip" title="Vista frontal">
+          <svg class="ico"><use href="#i-front"/></svg> Frontal
+        </button>
+        <button id="ext-btn-sup" class="btn chip" title="Vista superior">
+          <svg class="ico"><use href="#i-sup"/></svg> Superior
+        </button>
+        <button id="ext-btn-encuadrar" class="btn chip" title="Encuadrar">
+          <svg class="ico"><use href="#i-encuadrar"/></svg> Encuadrar
+        </button>
+      </div>
+
+      <div class="barra-visor arriba-der">
+        <button id="ext-btn-stl" class="btn chip">STL</button>
+        <button id="ext-btn-step" class="btn primario">
+          <svg class="ico"><use href="#i-descargar"/></svg> <span class="lbl-largo">Descargar </span>STEP
+        </button>
+      </div>
+
+      <div class="pie" id="ext-info"></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="js/three.min.js?v=21"></script>
+<script src="js/util.js?v=21"></script>
+<script src="js/nucleo.js?v=21"></script>
+<script src="js/exportar.js?v=21"></script>
+<script src="js/visor.js?v=21"></script>
+<script src="js/boceto.js?v=21"></script>
+<script src="js/rejas.js?v=21"></script>
+<script src="js/revolucion.js?v=21"></script>
+<script src="js/extrusion.js?v=21"></script>
+<script src="js/app.js?v=21"></script>
+</body>
+</html>
