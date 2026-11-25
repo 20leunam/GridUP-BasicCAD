@@ -214,13 +214,17 @@
       });
 
       el.addEventListener('pointerdown', (e) => {
+        this._down = { x: e.clientX, y: e.clientY, boton: e.button };
         el.setPointerCapture(e.pointerId);
         this.arrastrando = (e.button === 0 && !e.shiftKey) ? 'rotar' : 'mover';
         this.ultimo.x = e.clientX;
         this.ultimo.y = e.clientY;
       });
       el.addEventListener('pointermove', (e) => {
-        if (!this.arrastrando) return;
+        if (!this.arrastrando) {
+          if (this.alMover) this.alMover(e.clientX, e.clientY);
+          return;
+        }
         const dx = e.clientX - this.ultimo.x;
         const dy = e.clientY - this.ultimo.y;
         this.ultimo.x = e.clientX;
@@ -240,7 +244,16 @@
         }
         this.arrastrando = null;
       };
-      el.addEventListener('pointerup', soltar);
+      el.addEventListener('pointerup', (e) => {
+        const d = this._down;
+        soltar(e);
+        /* clic simple (sin arrastrar): lo recibe quien lo haya pedido */
+        if (d && d.boton === 0 && this.alClic &&
+            Math.hypot(e.clientX - d.x, e.clientY - d.y) < 4) {
+          if (this.alClic(e.clientX, e.clientY)) this._tClic = performance.now();
+        }
+        this._down = null;
+      });
       el.addEventListener('pointercancel', soltar);
 
       el.addEventListener('wheel', (e) => {
@@ -250,8 +263,51 @@
         this.necesita = true;
       }, { passive: false });
 
-      el.addEventListener('dblclick', () => this.encuadrar());
+      el.addEventListener('dblclick', () => {
+        if (this._tClic && performance.now() - this._tClic < 700) return;
+        this.encuadrar();
+      });
     }
+
+    /* Punto donde el rayo del cursor corta el plano horizontal z = zPlano
+       (coordenadas del mundo). Devuelve [x, y] o null. */
+    pickPlano(clientX, clientY, zPlano) {
+      if (!this.ok) return null;
+      const r = this.renderer.domElement.getBoundingClientRect();
+      const nx = ((clientX - r.left) / r.width) * 2 - 1;
+      const ny = -((clientY - r.top) / r.height) * 2 + 1;
+      this.camara.updateMatrixWorld();
+      const rc = new THREE.Raycaster();
+      rc.setFromCamera({ x: nx, y: ny }, this.camara);
+      const pl = new THREE.Plane(new THREE.Vector3(0, 0, 1), -zPlano);
+      const p = new THREE.Vector3();
+      return rc.ray.intersectPlane(pl, p) ? [p.x, p.y] : null;
+    }
+
+    /* Marcador circular sobre el plano (vista previa al colocar). */
+    marcador(x, y, z, radio, color) {
+      if (!this.ok) return;
+      if (x === null) {
+        if (this._marc) { this._marc.visible = false; this.necesita = true; }
+        return;
+      }
+      if (!this._marc) {
+        const g = new THREE.RingGeometry(0.82, 1, 40);
+        const m = new THREE.MeshBasicMaterial({
+          color: 0x8656fb, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthTest: false
+        });
+        this._marc = new THREE.Mesh(g, m);
+        this._marc.renderOrder = 10;
+        this.escena.add(this._marc);
+      }
+      this._marc.visible = true;
+      this._marc.material.color.setHex(color === undefined ? 0x8656fb : color);
+      this._marc.scale.set(radio, radio, radio);
+      this._marc.position.set(x, y, z);
+      this.necesita = true;
+    }
+
+    cursor(c) { if (this.ok) this.renderer.domElement.style.cursor = c || ''; }
 
     _mover(dx, dy) {
       const k = this.dist * 0.0018;

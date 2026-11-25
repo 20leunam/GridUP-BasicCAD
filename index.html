@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GridUP BasicCAD</title>
-<link rel="stylesheet" href="css/estilos.css?v=21">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="img/favicon-64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
+<link rel="stylesheet" href="css/estilos.css?v=23">
 </head>
 <body>
 
@@ -54,6 +57,9 @@
   <symbol id="i-encuadrar" viewBox="0 0 24 24">
     <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
   </symbol>
+  <symbol id="i-flecha" viewBox="0 0 24 24">
+    <path d="M5 4l14 7.5-6.2 2.1L10.7 20z"/>
+  </symbol>
   <symbol id="i-linea" viewBox="0 0 24 24">
     <path d="M5 19L19 5"/>
     <circle cx="5" cy="19" r="1.6"/>
@@ -95,6 +101,11 @@
     <path d="M4 14l8 4 8-4M4 14l8-4 8 4-8 4z"/>
     <path d="M4 14V9l8-4 8 4v5M12 5v5"/>
   </symbol>
+  <symbol id="i-zona" viewBox="0 0 24 24">
+    <rect x="4" y="4" width="16" height="16" rx="1.5" stroke-dasharray="3 2.5"/>
+    <path d="M4 12h16M12 12v8" />
+    <rect x="12" y="12" width="8" height="8" fill="currentColor" fill-opacity=".25"/>
+  </symbol>
   <symbol id="i-chevron" viewBox="0 0 24 24">
     <path d="M6 9l6 6 6-6"/>
   </symbol>
@@ -107,7 +118,7 @@
 <!-- ===================== CABECERA ===================== -->
 <header class="cabecera">
   <div class="marca">
-    <div class="logo"><svg class="ico"><use href="#i-reja"/></svg></div>
+    <div class="logo"><img src="img/icono-app.png" alt="Logo GridUP BasicCAD"></div>
     <div>
       <h1>GridUP BasicCAD</h1>
       <p>CAD paramétrico básico · STEP / STL</p>
@@ -241,8 +252,9 @@
             </select>
             <button id="r-deco-add" class="btn sec">+ Añadir</button>
           </div>
+          <p class="nota nota-activa" id="r-deco-ayuda"></p>
           <div id="r-deco-lista" class="lista-deco"></div>
-          <p class="nota">Posición en mm: X horizontal, Y profundidad, Z altura.</p>
+          <p class="nota">Se colocan pulsando sobre la reja; luego puedes ajustar su posición en mm: X ancho, Y fondo (grosor), Z altura. La reja se muestra y exporta tumbada.</p>
         </div>
       </details>
 
@@ -273,11 +285,11 @@
         <button id="r-btn-iso" class="btn chip" title="Vista isométrica">
           <svg class="ico"><use href="#i-cubo"/></svg> Iso
         </button>
-        <button id="r-btn-frontal" class="btn chip" title="Vista frontal">
-          <svg class="ico"><use href="#i-front"/></svg> Frontal
+        <button id="r-btn-frontal" class="btn chip" title="Vista de la cara">
+          <svg class="ico"><use href="#i-front"/></svg> Cara
         </button>
-        <button id="r-btn-superior" class="btn chip" title="Vista superior">
-          <svg class="ico"><use href="#i-sup"/></svg> Superior
+        <button id="r-btn-superior" class="btn chip" title="Vista de perfil">
+          <svg class="ico"><use href="#i-sup"/></svg> Perfil
         </button>
         <button id="r-btn-encuadrar" class="btn chip" title="Encuadrar">
           <svg class="ico"><use href="#i-encuadrar"/></svg> Encuadrar
@@ -309,14 +321,14 @@
             </div>
           </div>
           <div class="herramientas">
-            <button class="herr activa" data-herr="linea" title="Línea">
+            <button class="herr activa" data-herr="flecha" title="Flecha: elegir zona o seleccionar línea (Esc)">
+              <svg class="ico"><use href="#i-flecha"/></svg> Flecha
+            </button>
+            <button class="herr" data-herr="linea" title="Línea">
               <svg class="ico"><use href="#i-linea"/></svg> Línea
             </button>
             <button class="herr" data-herr="arco" title="Arco por 3 puntos">
               <svg class="ico"><use href="#i-arco"/></svg> Arco
-            </button>
-            <button class="herr" data-herr="sel" title="Seleccionar">
-              <svg class="ico"><use href="#i-sel"/></svg> Selecc.
             </button>
             <button class="herr" data-herr="borrar" title="Borrar">
               <svg class="ico"><use href="#i-borrar"/></svg> Borrar
@@ -346,6 +358,9 @@
             <button id="rev-btn-ejemplo" class="btn chip">
               <svg class="ico"><use href="#i-ejemplo"/></svg> Ejemplo
             </button>
+            <button id="rev-btn-ornamento" class="btn chip" title="Ejemplo con zonas: base octogonal, fuste cuadrado y remate redondo">
+              <svg class="ico"><use href="#i-ejemplo"/></svg> Ornamento
+            </button>
             <button id="rev-btn-cubo" class="btn chip" title="Perfil rectangular de 10 × 20 mm">
               <svg class="ico"><use href="#i-cubo"/></svg> Cubo
             </button>
@@ -358,7 +373,7 @@
         <div class="params-rev">
           <div class="params-cab">
             <span class="etq-seccion">Revolución</span>
-            <span class="sub">sección transversal</span>
+            <span class="sub">por zonas cerradas del dibujo</span>
           </div>
 
           <div class="modos" id="rev-modos">
@@ -378,6 +393,11 @@
               <input type="radio" name="rev-modo" value="octogono">
               <span><svg class="ico"><use href="#i-octogono"/></svg>Octógono</span>
             </label>
+          </div>
+
+          <div class="fila-zona">
+            <p class="nota nota-zona" id="rev-zona-info"></p>
+            <button id="rev-btn-todas" class="btn chip" title="Aplicar el tipo elegido a todas las zonas">Aplicar a todas</button>
           </div>
 
           <div class="campos dos">
@@ -558,15 +578,15 @@
 
 </main>
 
-<script src="js/three.min.js?v=21"></script>
-<script src="js/util.js?v=21"></script>
-<script src="js/nucleo.js?v=21"></script>
-<script src="js/exportar.js?v=21"></script>
-<script src="js/visor.js?v=21"></script>
-<script src="js/boceto.js?v=21"></script>
-<script src="js/rejas.js?v=21"></script>
-<script src="js/revolucion.js?v=21"></script>
-<script src="js/extrusion.js?v=21"></script>
-<script src="js/app.js?v=21"></script>
+<script src="js/three.min.js?v=22"></script>
+<script src="js/util.js?v=22"></script>
+<script src="js/nucleo.js?v=22"></script>
+<script src="js/exportar.js?v=22"></script>
+<script src="js/visor.js?v=22"></script>
+<script src="js/boceto.js?v=22"></script>
+<script src="js/rejas.js?v=22"></script>
+<script src="js/revolucion.js?v=22"></script>
+<script src="js/extrusion.js?v=22"></script>
+<script src="js/app.js?v=22"></script>
 </body>
 </html>

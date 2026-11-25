@@ -30,49 +30,51 @@
   }
 
   function construir() {
-    const modo = modoActual();
     const cal = CALIDAD[document.getElementById('rev-resolucion').value] || CALIDAD.media;
-    const p = RP.boceto.construirPerfil(cal.tol);
-
-    if (!p.puntos || p.puntos.length < 3) {
-      return { error: 'Dibuja una silueta con al menos 3 puntos.', piezas: [], perfil: p };
-    }
-
-    let perfil = RP.prepararPerfil(p.puntos);
-    if (perfil.length < 3) {
-      return { error: 'El perfil no es válido.', piezas: [], perfil: p };
-    }
-
-    /* El desplazamiento es radial: suma o resta a la coordenada x del perfil. */
     const desp = U.num('rev-desplaz', 0);
-    if (desp) perfil = perfil.map((q) => [q[0] + desp, q[1]]);
 
-    let minU = Infinity;
-    for (const q of perfil) minU = Math.min(minU, q[0]);
-    if (minU < -1e-4) {
-      return {
-        error: 'El perfil no puede cruzar el eje (radio < 0). Desplázalo a la derecha o ajusta el desplazamiento radial.',
-        piezas: [], perfil: p
-      };
+    /* Cada zona cerrada del dibujo se revoluciona con su propio tipo. */
+    let zonas = RP.boceto.zonas(cal.tol).map((z) => ({ puntos: z.puntos, modo: z.modo }));
+    if (!zonas.length) {
+      /* sin zonas cerradas: se usa el perfil abierto, cerrado con una línea */
+      const p = RP.boceto.construirPerfil(cal.tol);
+      if (p.puntos && p.puntos.length >= 3) zonas = [{ puntos: p.puntos, modo: modoActual() }];
+    }
+    if (!zonas.length) {
+      return { error: 'Dibuja una silueta cerrada (al menos 3 puntos).', piezas: [] };
     }
 
-    let malla;
-    let nombre;
-    if (modo === 'torno') {
-      malla = RP.torno(perfil, cal.segs, 0);
-      nombre = 'torno';
-    } else {
-      malla = RP.tornoPoligonal(perfil, LADOS[modo] || 4);
-      nombre = 'revolución ' + NOMBRE[modo];
-    }
+    const piezas = [];
+    for (const z of zonas) {
+      let perfil = RP.prepararPerfil(z.puntos);
+      if (perfil.length < 3) continue;
+      if (desp) perfil = perfil.map((q) => [q[0] + desp, q[1]]);
 
-    const piezas = [{ malla, nombre }];
+      let minU = Infinity;
+      for (const q of perfil) minU = Math.min(minU, q[0]);
+      if (minU < -1e-4) {
+        return {
+          error: 'El perfil no puede cruzar el eje (radio < 0). Desplázalo a la derecha o ajusta el desplazamiento radial.',
+          piezas: []
+        };
+      }
+      if (z.modo === 'torno') {
+        piezas.push({ malla: RP.torno(perfil, cal.segs, 0), nombre: 'torno' });
+      } else {
+        piezas.push({
+          malla: RP.tornoPoligonal(perfil, LADOS[z.modo] || 4),
+          nombre: 'revolución ' + (NOMBRE[z.modo] || z.modo)
+        });
+      }
+    }
+    if (!piezas.length) return { error: 'El perfil no es válido.', piezas: [] };
+
     let vol = 0, tris = 0;
     for (const q of piezas) {
       vol += Math.abs(q.malla.volumen());
       tris += q.malla.f.length;
     }
-    return { piezas, vol, tris, perfil: p, error: null, modo };
+    return { piezas, vol, tris, error: null };
   }
 
   function actualizar(auto) {
@@ -108,19 +110,34 @@
     return r;
   }
 
-  function actualizarVisibilidadTamano() {
-    const modo = modoActual();
-    const filaCal = document.getElementById('fila-calidad');
-    if (filaCal) filaCal.style.display = modo === 'torno' ? '' : 'none';
+  const DESCR = {
+    torno: 'Torno: el perfil gira alrededor del eje vertical; el radio (x) es el radio de la pieza.',
+    cuadrado: 'Cuadrado: sección cuadrada; la apotema es el radio (x), un perfil de 10 mm da una base de 20 mm.',
+    hexagono: 'Hexágono: sección hexagonal regular; la apotema es el radio (x).',
+    octogono: 'Octógono: sección octogonal regular; la apotema es el radio (x).'
+  };
 
+  function ponerRadio(modo) {
+    const r = document.querySelector('input[name="rev-modo"][value="' + modo + '"]');
+    if (r) r.checked = true;
+  }
+
+  function actualizarVisibilidadTamano(zona) {
+    const info = document.getElementById('rev-zona-info');
+    const btn = document.getElementById('rev-btn-todas');
     const nota = document.getElementById('rev-nota');
-    if (!nota) return;
-    if (modo === 'torno') {
-      nota.textContent = 'Torno: el perfil gira alrededor del eje vertical. El radio del dibujo (x) es el radio de la pieza.';
+    if (zona === undefined) zona = RP.boceto ? RP.boceto.zonaSeleccionada() : null;
+    if (zona) {
+      ponerRadio(zona.modo);
+      info.textContent = 'Zona ' + zona.indice + ' de ' + zona.total + ' seleccionada: elige su tipo de revolución.';
+      info.classList.add('activa');
+      btn.style.display = '';
     } else {
-      nota.textContent = 'Revolución ' + NOMBRE[modo] + ': la sección transversal es un ' + NOMBRE[modo] +
-        ' regular. La apotema es el radio del dibujo (x); un perfil de 10 mm genera una base de 20 mm.';
+      info.textContent = 'Sin zona elegida: el tipo se aplica a todas. Con la herramienta Flecha puedes pulsar una zona cerrada para darle su propio tipo.';
+      info.classList.remove('activa');
+      btn.style.display = 'none';
     }
+    if (nota) nota.textContent = DESCR[modoActual()] || '';
   }
 
   function iniciar() {
@@ -131,13 +148,18 @@
       estado: 'rev-estado',
       tab: 'tab-revolucion',
       modo: 'rev',
+      zonas: true,
+      herramientaInicial: 'flecha',
+      alZona: (z) => actualizarVisibilidadTamano(z),
       alCambiar: U.debounce(() => actualizar(false), 160)
     });
 
     document.querySelectorAll('input[name="rev-modo"]').forEach((r) => {
       r.addEventListener('change', () => {
+        const m = modoActual();
+        if (RP.boceto.zonaSeleccionada()) RP.boceto.ponerModoZonaSel(m);
+        else RP.boceto.ponerModoDefecto(m);
         actualizarVisibilidadTamano();
-        RP.boceto.redibujar();
         actualizar(false);
       });
     });
@@ -157,6 +179,15 @@
     document.getElementById('rev-btn-limpiar').addEventListener('click', () => RP.boceto.limpiar());
     document.getElementById('rev-btn-ejemplo').addEventListener('click', () => {
       RP.boceto.cargarEjemplo('rev');
+      setTimeout(() => actualizar(true), 30);
+    });
+    document.getElementById('rev-btn-todas').addEventListener('click', () => {
+      RP.boceto.ponerModoDefecto(modoActual());
+      actualizarVisibilidadTamano();
+      actualizar(false);
+    });
+    document.getElementById('rev-btn-ornamento').addEventListener('click', () => {
+      RP.boceto.cargarEjemplo('ornamento');
       setTimeout(() => actualizar(true), 30);
     });
     const btnCubo = document.getElementById('rev-btn-cubo');

@@ -73,6 +73,200 @@
     return Math.hypot(p[0] - (a[0] + vx * t), p[1] - (a[1] + vy * t));
   }
 
+
+  /* ============================================================
+     Zonas cerradas del dibujo
+     Calcula las caras del grafo plano formado por los segmentos:
+     divide los trazos en cruces y uniones en T, poda cabos sueltos
+     y recorre los ciclos. Cada ciclo cerrado es una zona.
+     ============================================================ */
+  function infoArco(seg) {
+    const cr = circuncentro(seg.a, seg.b, seg.m);
+    if (!cr || !isFinite(cr.r) || cr.r > 1e6) return null;
+    const ta = Math.atan2(seg.a[1] - cr.c[1], seg.a[0] - cr.c[0]);
+    const tb = Math.atan2(seg.b[1] - cr.c[1], seg.b[0] - cr.c[0]);
+    const tm = Math.atan2(seg.m[1] - cr.c[1], seg.m[0] - cr.c[0]);
+    const ccwTotal = norm2(tb - ta);
+    const mCcw = norm2(tm - ta);
+    let barrido = mCcw < ccwTotal ? ccwTotal : -(TAU - ccwTotal);
+    if (Math.abs(barrido) < 1e-6) barrido = TAU;
+    return { c: cr.c, r: cr.r, ta, barrido };
+  }
+
+  /* ¿q está sobre el trazo, lejos de sus extremos? Devuelve fracción de recorrido o -1 */
+  function posicionEnSeg(seg, q) {
+    if (dist(q, seg.a) < 0.04 || dist(q, seg.b) < 0.04) return -1;
+    if (seg.tipo === 'l') {
+      if (distPuntoSegmento(q, seg.a, seg.b) > 0.03) return -1;
+      const L = dist(seg.a, seg.b);
+      return L > 0 ? dist(seg.a, q) / L : -1;
+    }
+    const inf = infoArco(seg);
+    if (!inf) return -1;
+    if (Math.abs(dist(q, inf.c) - inf.r) > 0.03) return -1;
+    const tq = Math.atan2(q[1] - inf.c[1], q[0] - inf.c[0]);
+    const rel = inf.barrido > 0 ? norm2(tq - inf.ta) : norm2(inf.ta - tq);
+    if (rel >= Math.abs(inf.barrido) - 1e-6) return -1;
+    return rel / Math.abs(inf.barrido);
+  }
+
+  function partirSeg(seg, q) {
+    if (seg.tipo === 'l') {
+      return [{ tipo: 'l', a: seg.a, b: q.slice() }, { tipo: 'l', a: q.slice(), b: seg.b }];
+    }
+    const inf = infoArco(seg);
+    const f = posicionEnSeg(seg, q);
+    const s1 = inf.barrido * f, s2 = inf.barrido - s1;
+    const pt = (t) => [inf.c[0] + inf.r * Math.cos(t), inf.c[1] + inf.r * Math.sin(t)];
+    return [
+      { tipo: 'a', a: seg.a, b: q.slice(), m: pt(inf.ta + s1 / 2) },
+      { tipo: 'a', a: q.slice(), b: seg.b, m: pt(inf.ta + s1 + s2 / 2) }
+    ];
+  }
+
+  function cruceLineas(s, t) {
+    const x1 = s.a[0], y1 = s.a[1], x2 = s.b[0], y2 = s.b[1];
+    const x3 = t.a[0], y3 = t.a[1], x4 = t.b[0], y4 = t.b[1];
+    const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    if (Math.abs(den) < 1e-9) return null;
+    const u = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
+    const v = ((x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2)) / den;
+    const e = 0.02;
+    if (u <= e || u >= 1 - e || v <= e || v >= 1 - e) return null;
+    return [x1 + u * (x2 - x1), y1 + u * (y2 - y1)];
+  }
+
+  function dividirSegmentos(entrada) {
+    let lista = entrada.map((s) => JSON.parse(JSON.stringify(s)));
+    for (let guarda = 0; guarda < 400; guarda++) {
+      let cambio = false;
+      for (let i = 0; i < lista.length && !cambio; i++) {
+        const s = lista[i];
+        let corte = null;
+        for (let j = 0; j < lista.length && !corte; j++) {
+          if (i === j) continue;
+          const t = lista[j];
+          for (const q of [t.a, t.b]) {
+            if (posicionEnSeg(s, q) >= 0) { corte = q; break; }
+          }
+          if (!corte && s.tipo === 'l' && t.tipo === 'l') corte = cruceLineas(s, t);
+        }
+        if (corte) {
+          const partes = partirSeg(s, corte);
+          lista.splice(i, 1, partes[0], partes[1]);
+          cambio = true;
+        }
+      }
+      if (!cambio) break;
+    }
+    return lista;
+  }
+
+  function puntoEnPoligono(p, poly) {
+    let dentro = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i], b = poly[j];
+      if ((a[1] > p[1]) !== (b[1] > p[1]) &&
+          p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) dentro = !dentro;
+    }
+    return dentro;
+  }
+
+  /* Punto bien dentro de la zona: mitad del tramo interior más largo de una línea horizontal. */
+  function puntoInterior(poly) {
+    let cy = 0;
+    for (const p of poly) cy += p[1];
+    cy /= poly.length;
+    let mejor = null, largo = -1;
+    for (const y of [cy, cy + 0.17, cy - 0.17]) {
+      const xs = [];
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i], b = poly[j];
+        if ((a[1] > y) !== (b[1] > y)) xs.push(a[0] + ((y - a[1]) / (b[1] - a[1])) * (b[0] - a[0]));
+      }
+      xs.sort((u, v) => u - v);
+      for (let k = 0; k + 1 < xs.length; k += 2) {
+        if (xs[k + 1] - xs[k] > largo) { largo = xs[k + 1] - xs[k]; mejor = [(xs[k] + xs[k + 1]) / 2, y]; }
+      }
+    }
+    return mejor || poly[0];
+  }
+
+  function calcularZonas(segsIn, tol) {
+    if (!segsIn.length) return [];
+    const lista = dividirSegmentos(segsIn);
+    const verts = [];
+    const vert = (p) => {
+      for (let i = 0; i < verts.length; i++) if (dist(verts[i], p) < 0.05) return i;
+      verts.push([p[0], p[1]]);
+      return verts.length - 1;
+    };
+    let aristas = [];
+    const vistas = new Set();
+    for (const s of lista) {
+      const u = vert(s.a), v = vert(s.b);
+      if (u === v) continue;
+      if (s.tipo === 'l') {
+        const k = u < v ? u + '_' + v : v + '_' + u;
+        if (vistas.has(k)) continue;
+        vistas.add(k);
+      }
+      let pts = puntosSeg(s, tol || 0.04).map((p) => [p[0], p[1]]);
+      pts[0] = verts[u].slice();
+      pts[pts.length - 1] = verts[v].slice();
+      aristas.push({ u, v, pts });
+    }
+    /* poda de cabos sueltos */
+    let cambio = true;
+    while (cambio) {
+      cambio = false;
+      const grado = new Array(verts.length).fill(0);
+      for (const e of aristas) { grado[e.u]++; grado[e.v]++; }
+      const nuevas = aristas.filter((e) => grado[e.u] > 1 && grado[e.v] > 1);
+      if (nuevas.length !== aristas.length) { aristas = nuevas; cambio = true; }
+    }
+    if (!aristas.length) return [];
+
+    /* semiaristas */
+    const he = [];
+    aristas.forEach((e) => {
+      const r = e.pts.slice().reverse();
+      const a = { o: e.u, d: e.v, pts: e.pts, tw: he.length + 1, usado: false };
+      const b = { o: e.v, d: e.u, pts: r, tw: he.length, usado: false };
+      a.ang = Math.atan2(a.pts[1][1] - a.pts[0][1], a.pts[1][0] - a.pts[0][0]);
+      b.ang = Math.atan2(b.pts[1][1] - b.pts[0][1], b.pts[1][0] - b.pts[0][0]);
+      he.push(a, b);
+    });
+    const salen = verts.map(() => []);
+    he.forEach((h, i) => salen[h.o].push(i));
+    salen.forEach((l) => l.sort((a, b) => he[a].ang - he[b].ang));
+
+    const zonas = [];
+    for (let i = 0; i < he.length; i++) {
+      if (he[i].usado) continue;
+      const pts = [];
+      let h = i, guarda = 0, ok = true;
+      while (!he[h].usado && guarda++ < he.length + 2) {
+        he[h].usado = true;
+        const p = he[h].pts;
+        for (let k = 0; k < p.length - 1; k++) pts.push(p[k]);
+        const l = salen[he[h].d];
+        const idx = l.indexOf(he[h].tw);
+        if (idx < 0) { ok = false; break; }
+        h = l[(idx - 1 + l.length) % l.length];
+      }
+      if (!ok || h !== i || pts.length < 3) continue;
+      const area = RP.areaFirmada(pts);
+      if (area > 1e-4) zonas.push({ puntos: pts, area });
+    }
+    zonas.forEach((z) => { z.interior = puntoInterior(z.puntos); });
+    zonas.sort((a, b) => {
+      const ia = a.interior, ib = b.interior;
+      return Math.abs(ia[1] - ib[1]) > 1e-6 ? ib[1] - ia[1] : ia[0] - ib[0];
+    });
+    return zonas;
+  }
+
   /* ============================================================ */
   function crearBoceto(cfg) {
     const cv = cfg.canvas;
@@ -84,7 +278,7 @@
 
     let ancho = 800, alto = 600;
     let vista = { esc: 9, ox: 220, oy: 480 };
-    let herramienta = 'linea';
+    let herramienta = cfg.herramientaInicial || 'flecha';
     let pendiente = [];        // puntos del trazo en curso (el primero es el punto activo)
     let cadenaInicio = null;   // primer punto de la cadena (para cerrar el contorno)
     let cursor = [0, 0];
@@ -95,6 +289,41 @@
     let arrastre = null;
     let pasoRejilla = 0.5;
     let autoEncuadre = true;
+
+    /* zonas (solo revolución): tipo de revolución por zona */
+    const usaZonas = !!cfg.zonas;
+    let modoDefecto = 'torno';
+    let semillas = [];          // [{p:[x,y], modo}] la última que caiga dentro de una zona manda
+    let zonaSel = null;         // punto dentro de la zona seleccionada
+    let cacheZ = { clave: '', zonas: [] };
+    const COLOR_MODO = {
+      torno: [47, 128, 237], cuadrado: [232, 145, 45], hexagono: [46, 158, 107], octogono: [182, 75, 208]
+    };
+    const NOMBRE_MODO = { torno: 'torno', cuadrado: 'cuadrado', hexagono: 'hexágono', octogono: 'octógono' };
+
+    function zonas(tol) {
+      const clave = JSON.stringify(segs) + '|' + (tol || 0.04);
+      if (cacheZ.clave !== clave) cacheZ = { clave, zonas: calcularZonas(segs, tol || 0.04) };
+      const z = cacheZ.zonas;
+      z.forEach((q) => {
+        q.modo = modoDefecto;
+        for (const sm of semillas) if (puntoEnPoligono(sm.p, q.puntos)) q.modo = sm.modo;
+      });
+      return z;
+    }
+    function zonaDe(p, lista) {
+      let mejor = null;
+      for (const z of lista) {
+        if (puntoEnPoligono(p, z.puntos) && (!mejor || z.area < mejor.area)) mejor = z;
+      }
+      return mejor;
+    }
+    function zonaSeleccionada() {
+      if (!zonaSel) return null;
+      const lista = zonas(0.04);
+      const z = zonaDe(zonaSel, lista);
+      return z ? Object.assign({ indice: lista.indexOf(z) + 1, total: lista.length }, z) : null;
+    }
 
     /* ---------- historial ---------- */
     function instantanea() {
@@ -261,13 +490,45 @@
       ctx.setLineDash([]);
 
       // relleno suave del contorno si está cerrado
-      const per = construirPerfil(0.04);
-      if (per.cerrado && per.puntos.length > 2) {
-        ctx.beginPath();
-        trazarPts(per.puntos);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(47,128,237,0.08)';
-        ctx.fill();
+      if (usaZonas) {
+        const lz = zonas(0.04);
+        const sel = zonaSel ? zonaDe(zonaSel, lz) : null;
+        for (const z of lz) {
+          const c = COLOR_MODO[z.modo] || COLOR_MODO.torno;
+          ctx.beginPath();
+          trazarPts(z.puntos);
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (z === sel ? 0.34 : 0.14) + ')';
+          ctx.fill();
+          if (z === sel) {
+            ctx.save();
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = '#8656fb';
+            ctx.lineWidth = 2.2;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+        ctx.font = '600 10px ui-monospace, Consolas, monospace';
+        for (const z of lz) {
+          const c = COLOR_MODO[z.modo] || COLOR_MODO.torno;
+          const q = aPantalla(z.interior);
+          const txt = NOMBRE_MODO[z.modo];
+          const tw = ctx.measureText(txt).width;
+          ctx.fillStyle = 'rgba(255,255,255,0.8)';
+          ctx.fillRect(q[0] - tw / 2 - 4, q[1] - 9, tw + 8, 15);
+          ctx.fillStyle = 'rgb(' + Math.round(c[0] * 0.7) + ',' + Math.round(c[1] * 0.7) + ',' + Math.round(c[2] * 0.7) + ')';
+          ctx.fillText(txt, q[0] - tw / 2, q[1] + 2);
+        }
+      } else {
+        const per = construirPerfil(0.04);
+        if (per.cerrado && per.puntos.length > 2) {
+          ctx.beginPath();
+          trazarPts(per.puntos);
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(47,128,237,0.08)';
+          ctx.fill();
+        }
       }
 
       // segmentos
@@ -370,6 +631,11 @@
     }
 
     function textoAyuda() {
+      if (herramienta === 'flecha') {
+        return usaZonas
+          ? 'Pulsa una zona para elegir su revolución o una línea para seleccionarla · Supr para borrar'
+          : 'Pulsa una línea para seleccionarla · Supr para borrar';
+      }
       if (herramienta === 'sel') return 'Pulsa una línea para seleccionarla · Supr para borrarla';
       if (herramienta === 'borrar') return 'Pulsa una línea para borrarla';
       if (!pendiente.length) return herramienta === 'arco'
@@ -389,6 +655,7 @@
       let txt = 'x ' + cursor[0].toFixed(1) + ' · y ' + cursor[1].toFixed(1) + ' mm';
       if (p.puntos.length > 2) {
         txt += '  ·  ' + (p.cerrado ? '✓ perfil cerrado' : '⚠ perfil abierto');
+        if (usaZonas) { const nz = zonas(0.04).length; if (nz) txt += ' · ' + nz + (nz === 1 ? ' zona' : ' zonas'); }
       }
       txt += '  ·  ' + textoAyuda();
       elEstado.textContent = txt;
@@ -396,6 +663,10 @@
     }
 
     function notificar() {
+      if (usaZonas && zonaSel && !zonaDe(zonaSel, zonas(0.04))) {
+        zonaSel = null;
+        if (cfg.alZona) cfg.alZona(null);
+      }
       dibujar();
       actualizarEstado();
       alCambiar();
@@ -438,22 +709,50 @@
       }
     }
 
+    function buscarSegmentoCercano(bruto) {
+      let mejor = -1, dmin = Infinity;
+      for (let i = 0; i < segs.length; i++) {
+        const pts = puntosSeg(segs[i], 0.04);
+        for (let k = 0; k < pts.length - 1; k++) {
+          const d = distPuntoSegmento(bruto, pts[k], pts[k + 1]);
+          if (d < dmin) { dmin = d; mejor = i; }
+        }
+      }
+      return dmin < 8 / vista.esc ? mejor : -1;
+    }
+
     function pulsar(ev) {
       const bruto = eventoMundo(ev);
       const m = ajustar(bruto);
       cursor = m;
 
-      if (herramienta === 'sel' || herramienta === 'borrar') {
-        let mejor = -1, dmin = Infinity;
-        for (let i = 0; i < segs.length; i++) {
-          const pts = puntosSeg(segs[i], 0.04);
-          for (let k = 0; k < pts.length - 1; k++) {
-            const d = distPuntoSegmento(bruto, pts[k], pts[k + 1]);
-            if (d < dmin) { dmin = d; mejor = i; }
+      if (herramienta === 'flecha') {
+        const segCercano = buscarSegmentoCercano(bruto);
+        if (segCercano >= 0) {
+          seleccion = segCercano;
+          if (usaZonas && zonaSel) {
+            zonaSel = null;
+            if (cfg.alZona) cfg.alZona(null);
           }
+          notificar();
+          return;
         }
-        const umbral = 8 / vista.esc;
-        if (dmin < umbral) {
+        if (usaZonas) {
+          const z = zonaDe(bruto, zonas(0.04));
+          zonaSel = z ? bruto : null;
+          seleccion = -1;
+          notificar();
+          if (cfg.alZona) cfg.alZona(zonaSeleccionada());
+          return;
+        }
+        seleccion = -1;
+        notificar();
+        return;
+      }
+
+      if (herramienta === 'sel' || herramienta === 'borrar') {
+        const mejor = buscarSegmentoCercano(bruto);
+        if (mejor >= 0) {
           if (herramienta === 'borrar') {
             instantanea();
             segs.splice(mejor, 1);
@@ -517,9 +816,12 @@
     function limpiar() {
       instantanea();
       segs = [];
+      semillas = [];
+      zonaSel = null;
       terminarTrazo();
       seleccion = -1;
       notificar();
+      if (cfg.alZona) cfg.alZona(null);
     }
 
     function ponerHerramienta(h) {
@@ -540,9 +842,12 @@
       actualizarEstado();
     }
 
-    function cargar(lista) {
+    function cargar(lista, nuevasSemillas) {
       instantanea();
       segs = lista;
+      semillas = nuevasSemillas || [];
+      zonaSel = null;
+      if (cfg.alZona) cfg.alZona(null);
       seleccion = -1;
       terminarTrazo();
       autoEncuadre = true;
@@ -566,6 +871,13 @@
       rect: [
         L([0, 0], [40, 0]), L([40, 0], [40, 20]), L([40, 20], [0, 20]), L([0, 20], [0, 0])
       ],
+      ornamento: [
+        L([0, 0], [10, 0]), L([10, 0], [10, 6]), L([10, 6], [4, 6]), L([4, 6], [4, 30]),
+        L([4, 30], [5, 30]),
+        { tipo: 'a', a: [5, 30], b: [0, 40], m: [3.6, 37.2] },
+        L([0, 40], [0, 0]),
+        L([0, 6], [4, 6]), L([0, 30], [5, 30])
+      ],
       placa: [
         L([0, 0], [30, 0]),
         { tipo: 'a', a: [30, 0], b: [30, 20], m: [40, 10] },
@@ -574,7 +886,10 @@
     };
     function cargarEjemplo(nombre) {
       const lista = EJEMPLOS[nombre || (modo === 'rev' ? 'rev' : 'ext')] || [];
-      cargar(JSON.parse(JSON.stringify(lista)));
+      const sem = nombre === 'ornamento'
+        ? [{ p: [5, 3], modo: 'octogono' }, { p: [2, 18], modo: 'cuadrado' }, { p: [2, 35], modo: 'torno' }]
+        : [];
+      cargar(JSON.parse(JSON.stringify(lista)), sem);
     }
 
     function encuadrar() {
@@ -654,7 +969,15 @@
     global.addEventListener('keydown', (ev) => {
       if (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
       if (!raiz || !raiz.classList.contains('activa')) return;
-      if (ev.key === 'Escape' || ev.key === 'Enter') {
+      if (ev.key === 'Escape') {
+        if (pendiente.length) { instantanea(); terminarTrazo(); }
+        if (herramienta !== 'flecha' && raiz.querySelector('[data-herr="flecha"]')) {
+          ponerHerramienta('flecha');
+        } else {
+          notificar();
+        }
+      }
+      if (ev.key === 'Enter') {
         if (pendiente.length) { instantanea(); terminarTrazo(); }
         notificar();
       }
@@ -682,6 +1005,16 @@
 
     return {
       construirPerfil,
+      zonas,
+      zonaSeleccionada,
+      ponerModoZonaSel: (m) => {
+        if (!zonaSel) return;
+        semillas.push({ p: zonaSel.slice(), modo: m });
+        if (semillas.length > 200) semillas.shift();
+        notificar();
+        if (cfg.alZona) cfg.alZona(zonaSeleccionada());
+      },
+      ponerModoDefecto: (m) => { modoDefecto = m; semillas = []; notificar(); if (cfg.alZona) cfg.alZona(zonaSeleccionada()); },
       deshacer,
       limpiar,
       cargarEjemplo,

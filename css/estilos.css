@@ -78,16 +78,21 @@ body {
 
 .marca { display: flex; align-items: center; gap: 11px; min-width: 0; }
 .logo {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
-  border-radius: 11px;
-  background: #1c1c1c;
-  color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  background: transparent;
   box-shadow: var(--sombra-chip);
 }
-.logo .ico { width: 19px; height: 19px; }
+.logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 .marca h1 { font-size: 14.5px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
 .marca p { margin: 1px 0 0; font-size: 10.5px; color: var(--texto2); white-space: nowrap; }
 
@@ -815,3 +820,11 @@ input[type="number"] { -moz-appearance: textfield; }
   .medida { padding: 7px 10px; }
   .dato { display: none; }
 }
+
+.btn.activo { background: var(--acento); border-color: var(--acento); color: #fff; }
+.nota-activa { color: var(--acento); min-height: 0; }
+.nota-activa:empty { display: none; }
+
+.fila-zona { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.nota-zona { flex: 1; font-size: 11px; line-height: 1.4; color: var(--texto2); margin: 0; }
+.nota-zona.activa { color: var(--acento); font-weight: 600; }

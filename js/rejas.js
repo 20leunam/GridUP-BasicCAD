@@ -11,6 +11,7 @@
   let visor = null;
   let deco = [];
   let primera = true;
+  let colocando = null;   // tipo de elemento a colocar con el siguiente clic
 
   const TIPOS = {
     esfera: 'Esfera',
@@ -164,8 +165,19 @@
     for (const p of piezas) vol += Math.abs(p.malla.volumen());
     if (cfg.nv > 0 && cfg.nh > 0) vol -= cfg.nv * cfg.nh * cfg.gv * cfg.gh * D;
 
+    /* La reja se modela de pie (x ancho, y fondo, z alto) y se entrega
+       tumbada sobre el plano XY: (x, y, z) -> (x, z, y + fondo/2).
+       Así apoya en la rejilla del visor y sale lista para imprimir. */
     const borde = contornoUnion(rects, D);
-    return { piezas, vol, lineas: borde.lineas, puntos: borde.puntos };
+    const rot = (p) => [p[0], p[2], p[1] + D / 2];
+    const rotArr = (a) => {
+      if (!a) return null;
+      const o = new Float32Array(a.length);
+      for (let i = 0; i < a.length; i += 3) { o[i] = a[i]; o[i + 1] = a[i + 2]; o[i + 2] = a[i + 1] + D / 2; }
+      return o;
+    };
+    for (const p of piezas) { p.malla.transformar(rot); p.malla.orientar(); }
+    return { piezas, vol, lineas: rotArr(borde.lineas), puntos: rotArr(borde.puntos) };
   }
 
   function actualizar(auto) {
@@ -191,7 +203,7 @@
     const gramos = (r.vol / 1000) * 1.24;
 
     document.getElementById('r-info').innerHTML =
-      U.infoHTML(tam, r.piezas.length, tris, r.vol / 1000, gramos);
+      U.infoHTML([tam[0], tam[2], tam[1]], r.piezas.length, tris, r.vol / 1000, gramos);
 
     return r;
   }
@@ -247,18 +259,82 @@
       el.addEventListener('change', diferido);
     });
 
-    document.getElementById('r-deco-add').addEventListener('click', () => {
-      const tipo = document.getElementById('r-deco-tipo').value;
+    const TAM_DECO = 8;
+    const btnAdd = document.getElementById('r-deco-add');
+    const nota = document.getElementById('r-deco-ayuda');
+
+    function salirColocar() {
+      colocando = null;
+      btnAdd.textContent = '+ Añadir';
+      btnAdd.classList.remove('activo');
+      if (nota) nota.textContent = '';
+      visor.cursor('');
+      visor.marcador(null);
+      visor.alClic = null;
+      visor.alMover = null;
+    }
+
+    /* Plano de la reja a media profundidad (mundo: z = fondo/2).
+       Mundo (X, Y) = (x, z) de la reja. */
+    function puntoReja(cx, cy) {
       const cfg = leerCfg();
-      deco.push({
-        tipo,
-        tam: 8,
-        x: Math.round(cfg.ancho / 2),
-        y: 0,
-        z: Math.round(cfg.alto / 2)
-      });
-      pintarDeco();
-      actualizar(false);
+      const p = visor.pickPlano(cx, cy, cfg.fondo / 2);
+      if (!p) return null;
+      const W = cfg.ancho, H = cfg.alto;
+      let gm = cfg.marco ? Math.min(cfg.grosorMarco, Math.min(W, H) / 2 - 0.3) : 0;
+      if (gm < 0.3) gm = 0;
+      /* líneas de anclaje: centros de barras y bordes del marco */
+      const ax = [0, W, gm, W - gm], az = [0, H, gm, H - gm];
+      for (let i = 0; i < cfg.nv; i++) ax.push(gm + (W - 2 * gm) * (i + 1) / (cfg.nv + 1) + cfg.offV);
+      for (let i = 0; i < cfg.nh; i++) az.push(gm + (H - 2 * gm) * (i + 1) / (cfg.nh + 1) + cfg.offH);
+      /* radio de imán: unos 10 px en pantalla */
+      const umbral = Math.max(0.8, visor.c.dist * 0.014);
+      const imanta = (v, lista) => {
+        let mejor = null, d = umbral;
+        for (const a of lista) { const dd = Math.abs(v - a); if (dd < d) { d = dd; mejor = a; } }
+        return mejor;
+      };
+      const mx = imanta(p[0], ax), mz = imanta(p[1], az);
+      const redondea = (v) => Math.round(v * 2) / 2;
+      return {
+        x: mx !== null ? Math.round(mx * 100) / 100 : redondea(p[0]),
+        z: mz !== null ? Math.round(mz * 100) / 100 : redondea(p[1]),
+        iman: mx !== null || mz !== null,
+        cfg
+      };
+    }
+
+    function entrarColocar(tipo) {
+      colocando = tipo;
+      btnAdd.textContent = 'Cancelar';
+      btnAdd.classList.add('activo');
+      if (nota) nota.textContent = 'Pulsa sobre la reja para colocar el elemento (se imanta a barras y marco, en verde). Esc para cancelar.';
+      visor.cursor('crosshair');
+      visor.alMover = (cx, cy) => {
+        const q = puntoReja(cx, cy);
+        if (q) visor.marcador(q.x, q.z, q.cfg.fondo / 2 + 0.05, TAM_DECO / 2, q.iman ? 0x2e9e6b : 0x8656fb);
+        else visor.marcador(null);
+      };
+      visor.alClic = (cx, cy) => {
+        const q = puntoReja(cx, cy);
+        if (!q) return false;
+        deco.push({ tipo: colocando, tam: TAM_DECO, x: q.x, y: 0, z: q.z });
+        salirColocar();
+        pintarDeco();
+        actualizar(false);
+        return true;
+      };
+    }
+
+    btnAdd.addEventListener('click', () => {
+      if (colocando) { salirColocar(); return; }
+      entrarColocar(document.getElementById('r-deco-tipo').value);
+    });
+    document.getElementById('r-deco-tipo').addEventListener('change', () => {
+      if (colocando) entrarColocar(document.getElementById('r-deco-tipo').value);
+    });
+    global.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && colocando) salirColocar();
     });
 
     document.getElementById('r-btn-step').addEventListener('click', () => {
@@ -272,8 +348,8 @@
       RP.exportar.descargar('gridup-reja.stl', buf, 'model/stl');
     });
     document.getElementById('r-btn-encuadrar').addEventListener('click', () => visor.encuadrar());
-    document.getElementById('r-btn-frontal').addEventListener('click', () => visor.vistaFrontal());
-    document.getElementById('r-btn-superior').addEventListener('click', () => visor.vistaSuperior());
+    document.getElementById('r-btn-frontal').addEventListener('click', () => visor.vistaSuperior());
+    document.getElementById('r-btn-superior').addEventListener('click', () => visor.vistaFrontal());
     document.getElementById('r-btn-iso').addEventListener('click', () => visor.vistaIso());
 
     pintarDeco();

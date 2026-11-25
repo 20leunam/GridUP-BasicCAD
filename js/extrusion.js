@@ -36,7 +36,7 @@
     const r = construir();
     const info = document.getElementById('ext-info');
     if (r.error) {
-      visor.mostrar([], { autoEncuadre: false });
+      visor.mostrar([], { autoEncuadrar: false });
       info.innerHTML = '<span class="error">' + r.error + '</span>';
       return r;
     }
@@ -58,6 +58,7 @@
       estado: 'ext-estado',
       tab: 'tab-extrusion',
       modo: 'ext',
+      herramientaInicial: 'linea',
       alCambiar: U.debounce(() => actualizar(false), 160)
     });
     RP.boceto2 = boceto;
